@@ -1,0 +1,105 @@
+sub getMostRecentOfFile {
+	local('$download');
+	local('%result');
+	local('@finalArray');
+
+	# Iterate the downloads tree, which is already sorted by time downloaded
+	foreach $download (downloads()) {
+		$key = $download['host'] . $download['path'] . $download['name'];
+		
+		if ($key !in (keys(%result)))
+		{
+			%result[$key] = $download;
+		}
+		else
+		{
+			%result[$key] = $download;
+		}
+	}
+
+	foreach $item (keys(%result))
+	{
+		# Emulate the equivalent of creating the "downloads" function data as scalar array
+		add(@finalArray, %result[$item]);
+	}
+
+	return @finalArray;
+}
+
+
+sub getTOML {
+	local('$download');
+	local('%result');
+	local('$mainString');
+
+	%result['downloads'] = @();
+
+	foreach $download (getMostRecentOfFile()) {
+		local('$host $fpath $fpathsplit $fname $id $bname');
+		
+		$host = $download['host'];
+		$fpath = replace(replace($download['path'], ':', ''), '\\\\', '/');
+		$fname = $download['name'];
+		$bname = binfo($download['bid'])['computer'];
+		$id = split('/', $download['lpath'])[-1];
+
+		if (strlen($bname) >= 1)
+		{
+			add(%result['downloads'], %(host => $host, bname => $bname, fpath => $fpath, fname => $fname, id => $id));
+		}
+		else
+		{
+			add(%result['downloads'], %(host => $host, fpath => $fpath, fname => $fname, id => $id));
+		}
+		
+	}
+
+	if (size(%result['downloads']) >= 1) {
+		foreach $download (%result['downloads']) {
+			local('$key $value');
+			local('$currentString');
+
+			$currentString =  '[[download]]' . "\n";
+
+			foreach $key => $value ($download)
+			{
+				$currentString .= $key . " = " . "'" . $value . "'" . "\n";
+			}
+			
+			$currentString .= "\n";
+
+			$mainString .= $currentString;
+		}
+	}
+
+	return $mainString;
+}
+
+
+command TOMLDownload {
+	local('$handle $path $stringValue');
+
+	$path = '> ' . script_resource("") . "/output.toml";
+	$handle = openf($path);
+	$stringValue = getTOML();
+
+	println($handle, $stringValue);
+	closef($handle);
+
+	show_message("TOML file written to: " . script_resource("") . "/output.toml");
+}
+
+alias toml_download {
+	local('$handle $path $stringValue');
+
+	$path = '> ' . script_resource("") . "/output.toml";
+	$handle = openf($path);
+	$stringValue = getTOML();
+
+	println($handle, $stringValue);
+	closef($handle);
+
+	blog($1, "TOML file written to: " . script_resource("") . "/output.toml");
+}
+
+beacon_command_register("toml_download", "Generate TOML file of most recent Beacon downloads of any given file", "toml_download");
